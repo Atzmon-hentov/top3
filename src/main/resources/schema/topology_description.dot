@@ -1,0 +1,159 @@
+digraph {
+
+subgraph Integration_Topics {
+    bgcolor=lightgrey;
+    node [style=filled,color=white];
+    label="Integration Topics"
+
+
+"active-inventories" [color=crimson, style=filled, shape=oval, fontcolor=black, height=2]
+
+
+"ad-clicks" [color=crimson, style=filled, shape=oval, fontcolor=black, height=2]
+
+
+    }
+
+
+subgraph cluster_top_3 {
+    bgcolor=lightgrey;
+    node [style=filled,color=white];
+    label="top-3"
+
+
+
+
+subgraph cluster_top_3_0 {
+    bgcolor=aquamarine3;
+    node [style=filled,color=white];
+    label="subTopology: top_3_0 for global store (will not generate tasks)"
+
+
+"KSTREAM-SOURCE-0000000001" [color=darkgoldenrod1, style=filled, shape=oval, fontcolor=black, height=2]
+
+"KTABLE-SOURCE-0000000002" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"active-inventories" [color=crimson, style=filled, shape=oval, fontcolor=black, height=2]
+
+"active-inventories-STATE-STORE-0000000000" [color=lightgrey, style=filled, shape=folder, height=3]
+
+    "KSTREAM-SOURCE-0000000001" -> "KTABLE-SOURCE-0000000002"
+
+    "KTABLE-SOURCE-0000000002" -> "active-inventories-STATE-STORE-0000000000" [arrowhead=none, arrowtail=none]
+
+}
+
+    "active-inventories" -> "KSTREAM-SOURCE-0000000001"
+
+
+subgraph cluster_top_3_1 {
+    bgcolor=burlywood1;
+    node [style=filled,color=white];
+    label="subTopology: top_3_1"
+
+
+"KSTREAM-SOURCE-0000000003" [color=darkgoldenrod1, style=filled, shape=oval, fontcolor=black, height=2]
+
+"KSTREAM-LEFTJOIN-0000000004" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KSTREAM-KEY-SELECT-0000000005" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KSTREAM-FILTER-0000000009" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KSTREAM-SINK-0000000008" [color=blue, style=empty, shape=oval, fontcolor=black, height=2]
+
+"ad-clicks" [color=crimson, style=filled, shape=oval, fontcolor=black, height=2]
+
+"KSTREAM-AGGREGATE-STATE-STORE-0000000006-repartition" [color=grey24, style=filled, shape=oval, fontcolor=white, height=2]
+
+    "KSTREAM-SOURCE-0000000003" -> "KSTREAM-LEFTJOIN-0000000004"
+
+    "KSTREAM-LEFTJOIN-0000000004" -> "KSTREAM-KEY-SELECT-0000000005"
+
+    "KSTREAM-KEY-SELECT-0000000005" -> "KSTREAM-FILTER-0000000009"
+
+    "KSTREAM-FILTER-0000000009" -> "KSTREAM-SINK-0000000008"
+
+}
+
+    "ad-clicks" -> "KSTREAM-SOURCE-0000000003"
+
+    "KSTREAM-SINK-0000000008" -> "KSTREAM-AGGREGATE-STATE-STORE-0000000006-repartition"
+
+
+subgraph cluster_top_3_2 {
+    bgcolor=darkorchid1;
+    node [style=filled,color=white];
+    label="subTopology: top_3_2"
+
+
+"KSTREAM-SOURCE-0000000010" [color=darkgoldenrod1, style=filled, shape=oval, fontcolor=black, height=2]
+
+"KSTREAM-AGGREGATE-0000000007" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KTABLE-SELECT-0000000011" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KSTREAM-SINK-0000000012" [color=blue, style=empty, shape=oval, fontcolor=black, height=2]
+
+"KSTREAM-AGGREGATE-STATE-STORE-0000000006-repartition" [color=grey24, style=filled, shape=oval, fontcolor=white, height=2]
+
+"top3-clicks-repartition" [color=grey24, style=filled, shape=oval, fontcolor=white, height=2]
+
+"KSTREAM-AGGREGATE-STATE-STORE-0000000006" [color=lightgrey, style=filled, shape=folder, height=3]
+
+    "KSTREAM-SOURCE-0000000010" -> "KSTREAM-AGGREGATE-0000000007"
+
+    "KSTREAM-AGGREGATE-0000000007" -> "KTABLE-SELECT-0000000011"
+
+    "KSTREAM-AGGREGATE-0000000007" -> "KSTREAM-AGGREGATE-STATE-STORE-0000000006" [arrowhead=none, arrowtail=none]
+
+    "KTABLE-SELECT-0000000011" -> "KSTREAM-SINK-0000000012"
+
+}
+
+    "KSTREAM-AGGREGATE-STATE-STORE-0000000006-repartition" -> "KSTREAM-SOURCE-0000000010"
+
+    "KSTREAM-SINK-0000000012" -> "top3-clicks-repartition"
+
+
+subgraph cluster_top_3_3 {
+    bgcolor=deepskyblue1;
+    node [style=filled,color=white];
+    label="subTopology: top_3_3"
+
+
+"KSTREAM-SOURCE-0000000013" [color=darkgoldenrod1, style=filled, shape=oval, fontcolor=black, height=2]
+
+"KTABLE-AGGREGATE-0000000014" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KTABLE-TOSTREAM-0000000015" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"KSTREAM-FOREACH-0000000016" [color=dodgerblue1, style=filled, shape=component, fontcolor=black, height=2]
+
+"top3-clicks-repartition" [color=grey24, style=filled, shape=oval, fontcolor=white, height=2]
+
+"top3-clicks" [color=lightgrey, style=filled, shape=folder, height=3]
+
+    "KSTREAM-SOURCE-0000000013" -> "KTABLE-AGGREGATE-0000000014"
+
+    "KTABLE-AGGREGATE-0000000014" -> "KTABLE-TOSTREAM-0000000015"
+
+    "KTABLE-AGGREGATE-0000000014" -> "top3-clicks" [arrowhead=none, arrowtail=none]
+
+    "KTABLE-TOSTREAM-0000000015" -> "KSTREAM-FOREACH-0000000016"
+
+}
+
+    "top3-clicks-repartition" -> "KSTREAM-SOURCE-0000000013"
+
+        subgraph top_3_topics {
+            color=lightgrey;
+            rank=min;
+            node [style=filled,color=white];
+            label="top-3 topics"
+
+   }
+
+   }
+
+}
