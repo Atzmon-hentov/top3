@@ -63,6 +63,7 @@ public class Top3NewsTypesDemo {
                 AppConfigs.stateStoreName);
         properties.put("state.cleanup.delay.ms", 3600000);
         properties.put("commit.interval.ms", 50);
+        properties.put("cache.max.bytes.buffering", 1024*1024L);
         properties.put("num.stream.threads", 20);
 
 //        properties.put(StreamsConfig.RECEIVE_BUFFER_CONFIG, 20000);

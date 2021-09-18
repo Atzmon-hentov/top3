@@ -5,6 +5,7 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/pom.xml" />
+        <option value="$PROJECT_DIR$/../LearningJournal/Kafka-Streams-Real-time-Stream-Processing/query/pom.xml" />
       </list>
     </option>
   </component>
