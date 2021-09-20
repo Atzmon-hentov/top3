@@ -21,6 +21,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Map;
+
 /**
  * Runnable Kafka message dispatcher
  *
@@ -36,6 +38,7 @@ public class SImulator implements Runnable {
     private final int volumeFactor;
     private static final Logger logger = LogManager.getLogger(SImulator.class);
     private final static int internalFactor = 10;
+    private final Map<Long, Long> countProduced;
 
     /**
      * A dispatcher thread takes a producer and sends Kafka messages to the given topic.
@@ -46,12 +49,13 @@ public class SImulator implements Runnable {
      * @param adInventories
      * @param volumeFactor
      */
-    SImulator(KafkaProducer<String, String> producer, String adsTopic, String clicksTopic, AdInventories adInventories, int volumeFactor) {
+    SImulator(KafkaProducer<String, String> producer, String adsTopic, String clicksTopic, AdInventories adInventories, int volumeFactor, Map<Long, Long>counters) {
         this.producer = producer;
         this.adsTopic = adsTopic;
         this.clicksTopic = clicksTopic;
         this.adInventories = adInventories;
         this.volumeFactor = volumeFactor;
+        this.countProduced = counters;
     }
 
 
@@ -73,10 +77,11 @@ public class SImulator implements Runnable {
                     String clickEvent = "{\"ts\": " + ts + ",  \"InventoryID\": \"" + adInventories.getInventoryID() + "\"}";
                     producer.send(new ProducerRecord<String, String>(clicksTopic, adInventories.getInventoryID(), clickEvent));
                     volumeSent++;
-                    Top3NewsTypesDemo.producedPerCategory.put(adInventories.getNewsType(), volumeSent);
+                    incrementCounters();
+                    //Top3NewsTypesDemo.producedPerCategory.put(adInventories.getNewsType(), volumeSent);
                     Thread.sleep(8000  / volumeToSend(i, 20));
                 }
-                logger.info("Finished sending " + volumeSent + " messages for  " + adInventories.getInventoryID() + ", " + adInventories.getNewsType());
+                logger.info(adInventories.getInventoryID() + ":" + adInventories.getNewsType() + " -  Finished sending " + volumeSent + " messages. Going to sleep for a while.");
                 while (System.currentTimeMillis()-iterationStart < 10000) Thread.sleep(30);
                 logger.info("Awake ("+  adInventories.getInventoryID() + ", " + adInventories.getNewsType() + ")");
             }
@@ -86,6 +91,20 @@ public class SImulator implements Runnable {
         }
         Long end_time = System.currentTimeMillis();
         logger.info("Sent " + volumeSent + " " + adInventories.getNewsType() + " took : " + (end_time - start_time));
+    }
+
+    private void incrementCounters() {
+        Long ts = System.currentTimeMillis();
+        Long tsSecond = ts / 1000;
+        Long count = countProduced.get(tsSecond);
+        if (count == null) {
+            count = 0L;
+        } else {
+            if (count > 100) {
+                logger.info("count=" + count);
+            }
+        }
+        countProduced.put(tsSecond, ++count);
     }
 
     private int volumeToSend(int iteration, int iterations) {

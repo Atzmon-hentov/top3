@@ -1,5 +1,6 @@
 package io.kafkastreams.monitoring;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.kafkastreams.monitoring.common.AppConfigs;
 import io.kafkastreams.monitoring.common.AppSerdes;
 import io.kafkastreams.monitoring.common.Top3NewsTypes;
@@ -90,12 +91,29 @@ public class Top3Topology {
         top3NewsTypesKTable.toStream().foreach((k, v) -> {
             try {
                 logger.info("top 3 categories=" + Top3NewsTypesDemo.top3(v));
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
         });
 
         return null;
+    }
+
+    public static String top3(Top3NewsTypes top3NewsTypes) throws JsonProcessingException {
+        String result = "";
+        int i = 1;
+        for (ClicksByNewsType clicksByNewsType : top3NewsTypes.t3sorted) {
+            setCount(clicksByNewsType.getNewsType(), clicksByNewsType.getClicks());
+        }
+
+        return result;
+    }
+
+    private static void setCount(String index, Long value) {
+        Long ts = System.currentTimeMillis();
+        Long tsSecond = ts / 1000;
+        Top3NewsTypesDemo.observedCounts.get(index).put(tsSecond, value);
     }
 
 }

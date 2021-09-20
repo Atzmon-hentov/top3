@@ -51,7 +51,8 @@ public class Top3NewsTypesDemo {
     public static AtomicLong lastConsumed = new AtomicLong(0L);
     public static Map<String, Long> producedPerCategory = new ConcurrentHashMap<>();
     public static Map<String, Long> maxLagPerPartition = new ConcurrentHashMap<>();
-
+    public static Map<String, Map<Long, Long>> produceCounters = new HashMap<>();
+    public static Map<String, Map<Long, Long>> observedCounts = new HashMap<>();
     public static void main(String[] args) {
         Properties properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG,
@@ -66,97 +67,16 @@ public class Top3NewsTypesDemo {
         properties.put("cache.max.bytes.buffering", 1024*1024L);
         properties.put("num.stream.threads", 20);
 
-//        properties.put(StreamsConfig.RECEIVE_BUFFER_CONFIG, 20000);
-//        properties.put("cache.max.bytes.buffering", 200000);
-//        properties.put("buffered.records.per.partition", 1);
-//        properties.put("topology.optimization", "all");
-
-
         StreamsBuilder streamsBuilder = new StreamsBuilder();
 
         Top3Topology.withStreamsBuilder(streamsBuilder);
-        //Global table for all inventories
-//        GlobalKTable<String, AdInventories> adInventoriesGlobalKTable =
-//                streamsBuilder.globalTable(
-//                        AppConfigs.inventoryTopic,
-//                        Consumed.with(AppSerdes.String(),
-//                                AppSerdes.AdInventories())
-//                );
-//
-//        //Stream of Clicks
-//        KStream<String, AdClick> clicksKStream =
-//                streamsBuilder.stream(AppConfigs.clicksTopic,
-//                        Consumed.with(AppSerdes.String(),
-//                                AppSerdes.AdClick())
-//                );
-//
-//        //Stream of Clicked Inventories
-//        KStream<String, AdInventories> clickedInventoryKStream =
-//                clicksKStream.join(
-//                        adInventoriesGlobalKTable,
-//                        (clickKey, clickValue) -> clickKey,
-//                        (adClick, adInventory) -> adInventory
-//                );
-//
-//        //Group clicked inventories on NewsType and count
-//        //You will get clicks by news Types
-//        KTable<String, Long> clicksByNewsTypeKTable =
-//                clickedInventoryKStream.groupBy(
-//                        (inventoryID, inventoryValue) -> inventoryValue.getNewsType(),
-//                        Grouped.with(AppSerdes.String(), AppSerdes.AdInventories())
-//                ).count();
-//
-////        clicksKStream.peek((s, adClick) -> {
-////            if (adClick.getTs() > lastConsumed.get()) {
-////                lastConsumed.set(adClick.getTs());
-////            }
-////        });
-//
-//        //The clicksByNewsType is exhaustive and distributed
-//        //We need to compute the top 3 only
-//        //In order to do that, we must following
-//        //1. Bring all clicksByNewsType to a single partition
-//        //2. Sort them by clicks and take only top 3
-//        //There are two steps to achieve this.
-//        //1. Group them on a common key to bring it to a single partition
-//        //2. Simulate Sort()+Top(3) using a custom aggregation
-//        KTable<String, Top3NewsTypes> top3NewsTypesKTable =
-//                clicksByNewsTypeKTable.groupBy(
-//                        (k_newsType, v_clickCount) -> {
-//                            ClicksByNewsType value = new ClicksByNewsType();
-//                            value.setNewsType(k_newsType);
-//                            value.setClicks(v_clickCount);
-//                            return KeyValue.pair(AppConfigs.top3AggregateKey, value);
-//                        },
-//                        Grouped.with(AppSerdes.String(), AppSerdes.ClicksByNewsType())
-//                ).aggregate(Top3NewsTypes::new,
-//                        (k, newClickByNewsType, aggTop3NewType) -> {
-//                            aggTop3NewType.add(newClickByNewsType);
-//                            return aggTop3NewType;
-//                        },
-//                        (k, oldClickByNewsType, aggTop3NewType) -> {
-//                            aggTop3NewType.remove(oldClickByNewsType);
-//                            return aggTop3NewType;
-//                        },
-//                        Materialized.<String, Top3NewsTypes, KeyValueStore<Bytes, byte[]>>
-//                                as("top3-clicks")
-//                                .withKeySerde(AppSerdes.String())
-//                                .withValueSerde(AppSerdes.Top3NewsTypes()));
-//
-//        top3NewsTypesKTable.toStream().foreach((k, v) -> {
-//            try {
-//                logger.info("top 3 categories=" + top3(v));
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        });
 
+        startDataSimulation();
         KafkaStreams streams = new KafkaStreams(streamsBuilder.build(), properties);
         streams.start();
         Runtime.getRuntime().addShutdownHook(new Thread( () -> {
             streams.close();
         }));
-        startDataSimulation();
     }
 
 
@@ -175,6 +95,7 @@ public class Top3NewsTypesDemo {
 
         return result;
     }
+
     private static void startDataSimulation() {
         logger.trace("Starting dispatcher threads...");
         final String kafkaConfig = "/kafka.properties";
@@ -198,8 +119,12 @@ public class Top3NewsTypesDemo {
         categories.add(AdInventories.newInstance("1010", "Business"));
 
         Thread[] dispatchers = new Thread[categories.size()];
+        Map<String, Iterator> iterators = new HashMap<>();
         for (int i = 0; i < categories.size(); i++) {
-            dispatchers[i] = new Thread(new SImulator(producer, AppConfigs.inventoryTopic, AppConfigs.clicksTopic, categories.get(i), i));
+            produceCounters.put(categories.get(i).getNewsType(), new LinkedHashMap<>());
+            observedCounts.put(categories.get(i).getNewsType(), new LinkedHashMap<>());
+            iterators.put(categories.get(i).getNewsType(), produceCounters.get(categories.get(i).getNewsType()).keySet().iterator());
+            dispatchers[i] = new Thread(new SImulator(producer, AppConfigs.inventoryTopic, AppConfigs.clicksTopic, categories.get(i), i, produceCounters.get(categories.get(i).getNewsType())));
             dispatchers[i].start();
         }
 
@@ -215,5 +140,38 @@ public class Top3NewsTypesDemo {
             Long end_time = System.currentTimeMillis();
             logger.info("took: " + (end_time - start_time) + " msec");
         }
+
+        String csvReport = "";
+        csvReport = csvReport + "second, category, produced, observed\n";
+        boolean done = false;
+        while (!done) {
+            Long lowTs = System.currentTimeMillis();
+            String lowCategory = null;
+            for (int i = 0; i < categories.size(); i++) {
+                Long val = null;
+                Iterator<Long> iterator = iterators.get(i);
+                if (iterators.get(i).hasNext()) {
+                    val = iterator.next();
+                }
+                if (val != null && val < lowTs) {
+                    lowTs = val;
+                    lowCategory = categories.get(i).getNewsType();
+                }
+            }
+            if (lowCategory == null) {
+                done = true;
+            } else {
+                csvReport = csvReport + lowTs + ", " + lowCategory + ", " + produceCounters.get(lowCategory).get(lowTs) + ", " + observedCounts.get(lowCategory).get(lowTs) + "\n";
+                for (int i = 0; i < categories.size(); i++) {
+                    String category = categories.get(i).getNewsType();
+                    if (!category.equals(lowCategory)) {
+                        csvReport = csvReport + lowTs + ", " + category + ", " + produceCounters.get(category).get(lowTs) + ", " + observedCounts.get(category).get(lowTs) + "\n";
+                    }
+                }
+            }
+        }
+
+        logger.info("Finished simulation.");
+        logger.info("report:\n" + csvReport);
     }
 }

@@ -1,0 +1,12 @@
+
+
+- calculate top3 at produce time
+- produce actual-processing-latecy per second
+- framework for comparing path-processing-time algorithms:
+    - kafka e2e-data-latency
+    - enhanced
+    - strimzi
+- run over kafka 2.7
+- add interactive query
+- add influx/prometheus
+- add grafana
